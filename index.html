@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>体重管理 - 首日备菜版</title>
+    <title>体重管理 - 首日备菜版 + 清除缓存</title>
     <style>
         :root { --green: #07c160; --blue: #4a90e2; --grey: #d1d1d1; --red: #fa5151; --orange: #ff9f43; --bg: #f7f7f7; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: var(--bg); color: #333; padding-bottom: 30px; }
@@ -38,6 +38,7 @@
         .down { color: var(--green); }
 
         .btn { background: var(--green); color: #fff; text-align: center; padding: 12px; margin: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-clear { background: var(--red); margin-top: 0; }   /* 清除缓存按钮使用红色 */
 
         #modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; }
         .modal-box { position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); background:#fff; width:80%; padding:20px; border-radius:12px; }
@@ -93,6 +94,10 @@
         .s-content { color: #333; }
 
         .no-diet-msg { text-align: center; color: #999; font-size: 13px; padding: 20px 0; }
+
+        /* 新增按钮组，让两个按钮并排更紧凑 */
+        .btn-group { display: flex; gap: 8px; margin: 10px; }
+        .btn-group .btn { flex: 1; margin: 0; }
     </style>
 </head>
 <body>
@@ -152,7 +157,11 @@
     </div>
 </div>
 
-<div class="btn" onclick="init()">更新并保存所有数据</div>
+<!-- 按钮组: 原有更新按钮 + 新增清除缓存按钮 -->
+<div class="btn-group">
+    <div class="btn" onclick="init()">更新并保存所有数据</div>
+    <div class="btn btn-clear" onclick="clearAllCache()">🗑️ 清除所有缓存</div>
+</div>
 
 <div id="modal">
     <div class="modal-box">
@@ -328,8 +337,11 @@
             if(currentDayIndex >= dietPlan.length) break;
             
             const plan = dietPlan[currentDayIndex];
-            // 判断是否包含实物（非纯水）
-            if (plan.b !== "蜂蜜水" && plan.b !== "温水" && plan.l !== "温水") {
+            // 判断是否包含实物（非纯水）: 只要任意一餐不是"水" 且不是蜂蜜水之类也可以认为有食物，这里简单用不等于"水"判断
+            // 但蜂蜜水也算液体，但第一天可能还是有蜂蜜水，我们扩展一下：如果三餐都不包含"水"以外的字符，那就还是喝水日
+            // 这里沿用之前逻辑：早餐不是"蜂蜜水"且午餐不是"温水"？原代码有点模糊，我们改进一下: 只要三餐中有一项既不是"水"也不是"蜂蜜水"就算有食物
+            const hasFood = [plan.b, plan.l, plan.d].some(item => item !== "水" && item !== "蜂蜜水");
+            if (hasFood) {
                 firstEatIndex = currentDayIndex;
                 firstEatDateObj = new Date(startD);
                 firstEatDateObj.setDate(firstEatDateObj.getDate() + i);
@@ -530,6 +542,26 @@
                 show7DaysDiet(editDate, new Date(conf.sd));
             }
         }, 50);
+    }
+
+    // 清除所有缓存 (配置和体重记录)
+    function clearAllCache() {
+        if (confirm('确定要清除所有已保存的体重记录和配置吗？此操作不可恢复。')) {
+            localStorage.removeItem('logs_2026');
+            localStorage.removeItem('conf_2026');
+            // 重置内存变量
+            weightLogs = {};
+            // 恢复默认输入框值 (可选，保留页面显示默认值)
+            document.getElementById('sDate').value = '2026-03-09';
+            document.getElementById('eDate').value = '2026-03-31';
+            document.getElementById('sWeight').value = '121.4';
+            document.getElementById('tWeight').value = '100.0';
+            // 重新执行初始化，用默认配置更新界面
+            init();
+            // 隐藏食谱卡片（因为可能没有选中日期了）
+            document.getElementById('dietCard').style.display = 'none';
+            selectedDateForDiet = null;
+        }
     }
 
     window.onload = () => {
